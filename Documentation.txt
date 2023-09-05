@@ -1,0 +1,89 @@
+A simulator class is created which holds the logic for reading inputs and printing outputs.
+
+Class method:
+    • Csv Row:
+        ◦ Member Variables:
+            ▪ _data : unorderd_map<string,string> map the row’s data to corresponding header.
+        ◦ Methods:
+            ▪ Constructor(string line, vector<string> header): parses the row read from the csv file, maps it to the header, stores it in the _data (unordered_map<string,string>)
+            ▪ operator[](string): Overload the [] operator to return the row data for the given header.
+    • InputReader:
+        ◦ Member variables:
+            ▪ _header : vector<string> used for storing the headers of the csv file.
+            ▪ _data : vector<CsvRow> used for storing each row’s data. _data[i] represents the ith row data.
+            ▪ _timeIndex: vector<time_t> Store the time(in seconds) of each row.
+        ◦ Methods:
+            ▪ Constructor(filename): parses the file’s header and stores it in _header, for each subsequent row creates the csvROw object and stores it in _data (vector of csvRow).
+            ▪ getHeader() : returns the reference to  _header.
+            ▪ getStartIndex(timestamp): returns the index of the smallest value greater than equal to timestamp.
+            ▪ getEndIndex(timestamp): returns the index of the smallest value greater than timestamp
+            ▪ operator[](int i): return the reference to  ith row data.
+    • AlgoConfig:
+        ◦ Member variables:
+            ▪ simulationName :(string) stores the simulation name from the config file.
+            ▪ algoName :(string) stores the algo name from the config file.
+            ▪ Params: (unordered_map<string double>) stores the map of parameter and its value.
+        ◦ Methods::
+            ▪ Constructor(string line): parses the row read from the config file. Stores the simulationName, algoName, params.
+            ▪ getSimName() return simulation Name. 
+            ▪ getAlgoName : Return algo name.
+            ▪ getParmas(): return reference to params.
+    • Algo:
+        ◦ Member variables:
+            ▪ _config : Algo Config
+            ▪ Instruments: vector of stocks whose position is to be calculated.
+            ▪ closePrice: Pointer to the InputReader object.
+            ▪ Position, stateVaribles: vector<double> stores the position and state variable of the algo.
+            ▪ Ofs : ofstream object, output stream object for writing in the {simulator_name}.csv
+        ◦ Methods:
+            ▪ Constructor(AlgoConfig&& config, InputReader* inputData): Store the config passed in the constructor in _config. 
+                • Since the config is passed as a r value hence no copy is created. 
+                • Pointer to InputReader is passed and stored hence no copy of Inputreader object is created.
+            ▪ Void run(ti):
+                • Generated the position[ii] for all the instruments at time ti.
+            ▪ Void printOutput(int ti):
+                • Prints the time from the tith index of input data and then the position.
+    • Simulator:
+        ◦ Member variables:
+            ▪ Input Reader : User defined class for reading input and storing it.
+            ▪ startIndex, endIndex : indexes of the start and endtime present in the config file.
+            ▪ AlgoConfigs:vector of simConfig(User defined class), to store the config of each simulation.
+            ▪ AlgoConfig:User defined class for storing the config of the algorithm.
+        ◦ Methods:
+            ▪ constructor(string filename, string confgFile):
+                • Initializes  the inputReader object using the filename.
+                • Parses the config file, Parses the start, end time and converts them into seconds.
+                • Finds the start, end indexes using the getStartTimeIndex(startTIme), getEndTimeIndex(endTime).
+                • Parses the rest of the config file and generates AlgoConfig object and pushes into algoCofigs.
+            ▪ runSimulator(int simulationIndex)
+                • Creates an Object of algo initialized with the simulator config, InputReader*.
+                • For each ti from startIndex to endIndex, algo.run(ti), algo.printOutput(ti) are called.
+            ▪ simulate():
+                • Iterates over the configs and run the runSimulation(simulationIndex) in a separate parallel thread,
+                • Joins the thread in the main thread.
+
+Working:
+    • An object of type simulator is created with arguments as Input file and config files.
+    • In the constructor of simulator class:
+        ◦ The input file name is used to create the InputReader object.
+            ▪ The header of the file is parsed. And then the subsequent rows are parsed, where each data is mapped with the it’s header and stored.
+            ▪ The time of each row is converted into seconds and stored in the InutReader::_timeIndex vector.
+        ◦ The startTime and endtime are first parsed from the config file
+        ◦ The startTime, endTime is converted to seconds. Then the startIndex and endIndex are calculated using getStartIndex getEndIndex  Methods.
+        ◦ The algorithm configs are parsed and stored in algoConfigs.
+
+    • Simulate method is called:
+        ◦ Creates a parallel thread for each simulation provided in the config file (calls runSimulation(simulationIndex)).
+    • runSImultaion(simulationIndex):
+          Creates the algo object ased on the simulation config.
+          from startIndex to endIndex 
+          algo.run(index), algo.printOutput(index) are called.
+
+
+Issues:
+    • Incase of a simulator with more resolution, the size of the input file will increase and there is a limit on the amount of data that can be stored in the memory. If multiple algos are implemented then time of completion of the program will grow linearly.
+        ◦ Solution:
+            ▪ As soon as the input reader reads the ith row, this data must be used with all the algorithms to generate the ith position.
+            ▪ In case if the algorithm needs the data from the last k rows to generate the ith position, then the last k rows data must be stored and then passed to the algos.
+            ▪ The next row of the input data can be read only after reading the ith row data and generating the position for ith th row. Hence increasing the number of algorithms will increase the time of completion of the program.
+                • Instead of generating positions for each algo sequentially, multithreading must be used. Hence position for each algo will be generated sequentially. Hence the time of completion will be reduced.
